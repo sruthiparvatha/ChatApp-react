@@ -1,107 +1,143 @@
 import './App.css';
-import React from 'react';
-import firebase from  'firebase/app';
+import React, { useRef, useState } from 'react';
+import firebase from  'firebase';
 import 'firebase/firestore';
 import 'firebase/auth';
+import 'firebase/analytics';
 import {useAuthState} from 'react-firebase-hooks/auth';
 import {useCollectionData} from 'react-firebase-hooks/firestore';
 
-firebase.initializeApp({
-  apiKey: "AIzaSyC6m2--U6wf5tFyecbZGYBNRz4wec-B-Qw",
-  authDomain: "exampleprojects-9c6a5.firebaseapp.com",
-  databaseURL: "https://exampleprojects-9c6a5.firebaseio.com",
-  projectId: "exampleprojects-9c6a5",
-  storageBucket: "exampleprojects-9c6a5.appspot.com",
-  messagingSenderId: "863305756672",
-  appId: "1:863305756672:web:5783c74b51ecfa2b9728e5",
-  measurementId: "G-GT98YM0D9V"
-})
+var firebaseConfig = {
+  apiKey: "AIzaSyAgWjh7TC3G_V-apLawLKgojIJB2CWJL9c",
+  authDomain: "asset-management-iot.firebaseapp.com",
+  databaseURL: "https://asset-management-iot.firebaseio.com",
+  projectId: "asset-management-iot",
+  storageBucket: "asset-management-iot.appspot.com",
+  messagingSenderId: "992401748239",
+  appId: "1:992401748239:web:d8a488cd701690e0218e7a",
+  measurementId: "G-75VW1W2WRE"
+};
 
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+firebase.analytics();
+
+//Note: set the rules in firestore database to allow read and write: if true;
 
 const auth = firebase.auth();
 const firestore = firebase.firestore();
 
-
 function App() {
 
-  const [user]= useAuthState(auth);
-  const messageRef = firestore.collection('messages');
-  const query = messageRef.orderBy('createdAt').limit(25);
-
-  const [m] = useCollectionData(query, {idField: 'id'});
-
+  const [user] = useAuthState(auth); // returns userid and email if any current user is present, else returns null
   return (
-    // Note React renders JSX(JavaScript XML) not HTML elements. JSX is preprocessed to convert to HTML code.
     <div className="App">
       <header>
-        <h1>😎</h1>
-        {m.map(msg => <ChatMessage key={msg.id} message={msg} />)}
+        <h1>⚛️🔥💬</h1>
         <SignOut />
       </header>
       <section>
-        {user ? <Chatroom /> : <SignIn />}
+        {user ? <ChatRoom /> : <SignIn />} 
       </section>
+
+    
     </div>
   );
 }
 
+function SignIn() {
 
-function SignIn(){
   const signInWithGoogle = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider);
   }
+
   return (
-    <button onClick={signInWithGoogle}>Sign In with Google</button>
+    <>
+      <button className="sign-in" onClick={signInWithGoogle}>Sign in with Google</button>
+      <center><p>Disclaimer: Do not violate the community guidelines.</p></center>
+    </>
   )
+
 }
 
-function SignOut(){
 
+
+function SignOut() {
   return auth.currentUser && (
-    <button onClick={() => auth.signOut()}>Sign Out</button>
+    <button className="sign-out" onClick={() => auth.signOut()}>Sign Out</button>
   )
 }
 
-function Chatroom(){
 
-  const messageRef = firestore.collection('messages');
-  const query = messageRef.orderBy('createdAt').limit(25);
 
-  // Listen to the data by using a react hook, anytime the data changes in backend(firebase) react will re-render this data
-  const [messages] = useCollectionData(query, {idField: 'id'}); // returns an array of objects aka the chat messages ordered by latest to oldest
+function ChatRoom() {
+  const dummy = useRef();
+  const messagesRef = firestore.collection('messages');
+  const query = messagesRef.orderBy('createdAt').limit(25);
 
-  return(
-    //loop over each document or row in the collection
-    // render each message separately
+  const [messages] = useCollectionData(query, { idField: 'id' }); // get real time message data stored in firestore using this react-hook
 
-    // checks if any messages are present and maps ChatMessage component(contains props key and message) to every element present in the messages array
-    <div>
-      { messages && messages.map(msg => <ChatMessage key={msg.id} message={msg} />) }
+  const [formValue, setFormValue] = useState(''); 
 
-      <form>
-        <input />
-      </form>
-    </div>
+  //Event Handler on submit of form
+  const sendMessage = async (e) => {
+    e.preventDefault(); //Prevent automatic page refresh on form submission
 
-    
-  )
+    const { uid, photoURL } = auth.currentUser;
+
+    // used to add a new message to firestore backend
+    await messagesRef.add({
+      text: formValue,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      uid,
+      photoURL
+    })
+
+    //clear form input after sending data to backend
+    setFormValue('');
+    dummy.current.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Note <> </> tags allow you to return more than one JSX tag at a time
+  // Bind state to form input
+  return (<>
+    <main>
+
+      {messages && messages.map(msg => <ChatMessage key={msg.id} message={msg} />)}
+
+      <span ref={dummy}></span>
+
+    </main>
+
+    <form onSubmit={sendMessage}>
+
+      <input value={formValue} onChange={(e) => setFormValue(e.target.value)} placeholder="Type Somthing Nice Here." />
+
+      <button type="submit" disabled={!formValue}>💬</button>
+
+    </form>
+  </>)
 }
 
-function ChatMessage(props){
-
-  const { text, uid, photoURL} = props.message;
+function ChatMessage(props) {
+  const { text, uid, photoURL } = props.message;
 
   const messageClass = uid === auth.currentUser.uid ? 'sent' : 'received';
 
-  return(
-    <div className={`message ${messageClass}`}>
-      <img src={photoURL} />
-      <p>{ text }</p>
-    </div>
+  return (
+      <>
+        <div className={`message ${messageClass}`}>
+          <img src={photoURL} />
+          <p>{text}</p>
+      </div>
+        
+      </>
+    
     
   )
 }
+
 
 
 
